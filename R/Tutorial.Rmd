@@ -1,0 +1,216 @@
+---
+title: "Tutorial doublIn package"
+author: "Vera Arntzen"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Tutorial doublIn package}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+runtime: shiny
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+First, we load the package doublIn.
+
+```{r Load the package}
+
+# Load the package.
+library(doublIn)
+
+```
+
+In this tutorial we walk through an analysis as is outlined in the corresponding
+paper (to be published) but using example data. 
+
+### Estimate latency time
+
+Before we start, let's generate a simple 
+data set.
+
+```{r Generate a small data set}
+
+# The random starting point can be changed to another value if you like.
+set.seed(123)
+
+# For details, see the example in the help file of the function Estimate_doublIn.
+  L1 <- sample(1:5, 100, replace = T) 
+  L <- runif(100, 0, L1)
+  times <- rgamma(100, shape = 4.05, rate = 0.74)
+  R <- L + times
+  R0 <- floor(R); R1 <- floor(R + 1)
+  L1 <- ifelse(L1 > R1, R1, L1)
+  Q <- L1 + sample( c(5, 10, 15, 20, 25), 100, replace = T)
+  mydat <- data.frame(R = R, L0 = 0, L1 = L1, R0 = R0, R1 = R1,
+                      Trunc = Q)
+  mydat <- mydat[which( (mydat$R > mydat$Trunc) == F), ]
+  mydat$R <- NULL
+  rownames(mydat) <- NULL
+
+# Inspect the data.
+  knitr::kable(head(mydat, 5))
+  
+```
+
+The example data is based on the structure of real observations of the latency 
+time, but may be used to illustrate the analysis for any doubly interval 
+censored time-to-event (L to R). Therefore, in the remainder of this tuturial 
+we use the notation L and R instead of E (infection/exposure) and S 
+(symptom onset/start-of-shedding).
+
+The data set has five columns that define the exposure window (L0; L1), the 
+start-of-shedding window (R0; R1) and the truncation time. The truncation
+time does not have to be part of the data set necessarily. It is only required 
+when truncation is addressed during the analysis, as we will see later.
+
+Each cell represents the number of days elapsed since the start of exposure, 
+which is L0 (0 is this case) but this may be since any calendar time, and in a
+measurement unit that the user prefers.
+
+In the analysis, we take the following factors into account, which is important 
+to obtain unbiased estimates:
+(i) the infection risk within the exposure window (exponential growth);
+(ii) the under-representation of long latency times (right truncation);
+(iii) the potentially longtailed latency time distribution, requiring a 
+flexible model (generalized gamma).
+The factors that are relevant depend from context to context.
+
+For now, we assume that the risk of infection remained constant during the
+fictive outbreak. We come back to (i) in the second part of this tutorial.
+
+```{r Run the model}
+
+# Run the model with truncation.
+out_list  <- Estimate_doublIn(dat = mydat,
+             infection_risk_distribution = "constant",
+             method = "gamma", percentiles = c(0.5, 0.9, 0.95, 0.99),
+             right_truncation = T, iters = 1000,
+             burnin_period = 10, thin = 1,
+             further_thin_plots = 1,
+             plot_rm_burnin = T)
+
+# Inspect the output.
+summary(out_list)
+
+```
+
+The output is a list with three components: a data.frame with the estimates;
+a diagnostic plot of the quantiles; a diagnostic plot of the parameters.
+
+```{r Estimates}
+
+# Inspect the estimates.
+knitr::kable(out_list$estimates)
+
+```
+
+The estimated mean is 5.14 with 95% credible interval (CrI) of (4.63; 5.81).
+
+### Visualize the results
+
+Let's plot the estimated distribution.
+
+```{r Plot the distribution, fig.width = 6}
+
+# Make a function of the plot in the paper.
+Plot_doublIn(doublIn_obj = out_list, 
+             label_x = "Latency time (days)", 
+             label_y = "Probability")
+
+```
+
+In the above plot, we see that the fitted distribution is right skewed. The 
+vertical line pieces correspond to the median, the 90th and 95th percentile,
+respectively.
+
+Next, let us have a look at the diagnostics. Note that the parameters that the
+panels in the upcoming figures refer to are not exactly the same as the 
+parameters in the output as the estimation function reparameterises internally.
+
+```{r Diagnostic plot - running quantiles, fig.width = 6}
+
+# Plot the running quantiles.
+out_list$plot_running_quantiles
+
+```
+
+Each color represents one of the three Markov Monte Carlo chains. Essentially,
+the model starts at three random points. The model converged properly if the 
+quantiles (2.5%, 50%, 97.5%) of the parameters using all iterations up to the 
+respective iteration (omitting the burnin period) overlap almost entirely on the
+right side of the plot. So, if all is well, we observe three bundles with each
+three lines of a different color.
+
+```{r Diagnostic plot - parameter values, fig.width = 6}
+
+# Plot the parameter values per iteration.
+out_list$plot_parameters
+
+```
+
+Instead of a cumulative measure, the second plot represents the parameter values
+at each iteration. When mixing is properly, there is no pattern visible; just a
+blur. When, for example, the first 200 iterations the values are clearly different
+from the remaining iterations, the burnin period needs to be longer.
+
+### Estimate the exponential growth factor
+
+To address (i), we need the exponential growth factor for our specific sampling
+period and place. To this end, in the analysis for our paper on SARS-CoV-2 latency time we
+utilized time series of the incidence of individuals with a first positive test 
+from an extensive line list. However, for illustration purposes, we use openly 
+available data from the R package 'outbreaks', concerning the daily incidence of 
+influenza cases in a boarding school in England. We use the R package 'incidence'
+to obtain the estimate of the exponential growth factor r.
+
+```{r Estimation of the growth factor, fig.width = 4}
+
+# Load the package.
+require(incidence)
+require(outbreaks)
+
+data("influenza_england_1978_school")
+
+# Format as an incidence object.
+inc_obj <- as.incidence(influenza_england_1978_school$in_bed, 
+                      influenza_england_1978_school$date)
+plot(inc_obj)
+
+# Find the peak.
+peak <- find_peak(inc_obj)
+
+# Select only the incidence up to the peak for estimation.
+inc_obj <- inc_obj[inc_obj$dates <= peak,]
+
+# Estimate the growth rate.
+# We will only use the increasing phase for estimation, hence the term '-1'
+inc_fit <- incidence::fit(inc_obj)
+r <- inc_fit$info$r
+plot(inc_fit)
+
+# Inspect r .
+r
+
+```
+
+Notice that influenza outbreaks tend to grow much faster than those of SARS-CoV-2
+due to the short incubation and latency time.
+
+### Explore the possibilities of the visualization app
+
+```{r Run the app, eval = FALSE}
+
+# Run the app
+Visualize_contact_tracing_data()
+
+```
+
+### References
+
+Lessler J, Reich NG, Cummings DAT and The DOHMH Swine Influenza Investigation Team. Outbreak of 2009 Pandemic Influenza A (H1N1) at a New York City School. New England Journal of Medicine. 2009. 361(27):2628-2636.
