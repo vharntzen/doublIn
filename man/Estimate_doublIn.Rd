@@ -107,7 +107,7 @@ plots is written by Ronald Geskus.
  mydat$L1 <- ifelse(mydat$L1 > mydat$R1, mydat$R1, mydat$L1)
 
  # Run the model with truncation
-  \dontrun{Estimate_doublIn(dat = mydat,
+  \donttest{Estimate_doublIn(dat = mydat,
  infection_risk_distribution = "constant",
  method = "gamma", percentiles = c(0.5, 0.9, 0.95, 0.99),
  right_truncation = TRUE, iters = 1000,

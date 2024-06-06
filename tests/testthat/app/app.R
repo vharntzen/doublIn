@@ -1,50 +1,23 @@
-#' Visualize contact tracing data
-#'
-#' @description
-#' Run an application that visualizes contact tracing data that can be used to
-#' estimate incubation and latency time using the doublIn package.
-#'
-#' @return R Shiny application.
-#'
-#' @details
-#' We have used this app to visualize contact tracing data that was collected
-#' using a tailor-made contact tracing form. For details and source code, have
-#' a look at the Github page of Manh Nguyen Duc.
-#'
-#' @references Manh Nguyen Duc (2024) Contact tracing form using KoboToolbox
-#' https://github.com/manhnguy/Contact-Tracing-for-Respiratory-Transmitted-Diseases
-#'
-#' @author Vera Arntzen, \email{v.h.arntzen@@math.leidenuniv.nl}
-#' @keywords survival
-#' @rawNamespace import(mStats, except = c("label", "recode"))
-#' @import tools
-#' @import shiny
-#' @import magrittr
-#' @import dplyr
-#' @rawNamespace import(plotly, except = last_plot)
-#' @import xtable
-#' @rawNamespace import(epicontacts, except = thin)
-#' @import visNetwork
-#' @rawNamespace import(lubridate, except = c(day, month, is.Date, year))
-#' @import shinythemes
-#' @rawNamespace import(DT, except = c(formatDate, dataTableOutput, renderDataTable))
-#' @import shinyWidgets
-#' @import shinydashboard
-#' @importFrom methods is
-#'
-#' @examples
-#' # To run the app:
-#' if(interactive()){Visualize_contact_tracing_data()}
-#'
-#' @export
-Visualize_contact_tracing_data <- function(){
+# Visualize contact tracing data
+# NB: this code is to check the app. The actual function can be found elsewhere.
+#
+# Run an application that visualizes contact tracing data that can be used to
+# estimate incubation and latency time using the doublIn package.
 
-# This function consists of three parts: (i) preparation of the contact network;
-# (ii) the R Shiny 'ui' and the (iii) R Shiny 'server'.
-
-# General remarks
-# .[[]]: corrects for the fact that colName is a string.
-# observe (...) updateSelectizeInput (...): the drop-down menu depends on data set.
+require(mStats)
+require(tools)
+require(magrittr)
+require(dplyr)
+require(plotly)
+require(xtable)
+require(epicontacts)
+require(visNetwork)
+require(lubridate)
+require(shinythemes)
+require(DT)
+require(shinyWidgets)
+require(shinydashboard)
+require(methods)
 
 # . . . . . Prepare the network . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -412,5 +385,4 @@ server <- shinyServer(function(input, output, session) {
 
 shinyApp(ui, server)
 
-}
 
